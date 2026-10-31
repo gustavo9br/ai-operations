@@ -6,10 +6,9 @@ Trabalho da disciplina **Desenvolvimento de Aplicações e Automações com Low 
 
 | | |
 |---|---|
-| **Demonstração** | <https://aiops.gustavomartins.dev/form/nova-demanda> <!-- TODO: confirmar depois do deploy --> |
+| **Demonstração** | <https://aiops.gustavomartins.dev/form/nova-demanda> |
 | **Vídeo pitch** | <!-- TODO: link do vídeo --> |
 | **Parte teórica** | [docs/parte-teorica.md](docs/parte-teorica.md) |
-| **Roteiro do vídeo** | [docs/roteiro-video.md](docs/roteiro-video.md) |
 
 ---
 
@@ -59,10 +58,10 @@ flowchart LR
 |---|---|
 | **Entrada** | Form Trigger, Webhook (autenticação por cabeçalho `X-API-Key`) |
 | **Processamento** | Code (unifica, valida, gera protocolo, **mascara dados sensíveis**), If |
-| **Dados** | Postgres (deduplicação em 24 h, cadastro e histórico do cliente), Send Email (acuse) |
+| **Dados** | Postgres (deduplicação em 24 h, cadastro e histórico do cliente), Gmail (acuse; Send Email/SMTP no ambiente local) |
 | **IA** | Basic LLM Chain + Structured Output Parser (Triador); **AI Agent** + Postgres Tool + Postgres Chat Memory (Redator); OpenAI Chat Model com **modelo reserva** |
 | **Decisão** | Code (regras e guardrail), Switch |
-| **Ação** | Postgres, Send Email, Telegram |
+| **Ação** | Postgres, Gmail (Send Email/SMTP no ambiente local), Telegram |
 | **Supervisão** | **Wait (formulário)** com timeout, Telegram |
 | **Registro** | Postgres (`eventos_demanda`, append-only), Schedule Trigger, Error Trigger |
 
@@ -206,7 +205,7 @@ Além disso o n8n guarda cada execução com os dados de entrada e saída de tod
 1. Faça *push* na `main`: o GitHub Actions publica a imagem do banco em `ghcr.io/gustavo9br/ai-operations-db`. (O n8n usa a imagem oficial.)
 2. Copie `vps.env.example` para `vps.env`, gere os segredos (`openssl rand -hex 24`) e preencha os `chat_id` do Telegram.
 3. No Portainer: **Stacks → Add stack → Web editor**, cole `docker-compose.prod.yml` e em *Environment variables* use **Load variables from .env file** com o `vps.env`.
-4. Abra `https://aiops.gustavomartins.dev`, crie o usuário dono do n8n e cadastre as **6 credenciais** (nomes exatos): `Ops Postgres` e `Ops Postgres (memória)` (host `db`, banco `ops`, usuários `ops_app` e `ops_memoria`), `OpenAI (Ops)`, `SMTP (Ops)`, `Telegram Bot (Ops)` e `Webhook API Key (Ops)` (Header Auth, nome `X-API-Key`).
+4. Abra `https://aiops.gustavomartins.dev`, crie o usuário dono do n8n e cadastre as **6 credenciais** (nomes exatos): `Ops Postgres` e `Ops Postgres (memória)` (host `db`, banco `ops`, usuários `ops_app` e `ops_memoria`), `OpenAI (Ops)`, `SMTP (Ops)` (ou, como na produção atual, uma credencial `Gmail account` OAuth2 nos nós de e-mail), `Telegram Bot (Ops)` e `Webhook API Key (Ops)` (Header Auth, nome `X-API-Key`).
 5. **Workflows → Import from file** com os 4 arquivos de [workflows/](workflows/) e abra cada nó marcado em vermelho para selecionar a credencial. **Publique os 4** (o de erros também, senão ele não dispara).
 
 > Alternativa por linha de comando, sem clicar: `scripts/seed-credentials.mjs` + `scripts/importar-no-n8n.sh <container> <credenciais.json>` (o mesmo caminho usado no ambiente local).
@@ -215,7 +214,17 @@ Além disso o n8n guarda cada execução com os dados de entrada e saída de tod
 
 ## 9. Prints
 
-> As telas abaixo foram geradas no ambiente de desenvolvimento **com a IA simulada**: elas mostram a orquestração real, mas não a qualidade da IA. Refaça as de IA e Telegram com a OpenAI e o bot reais antes de entregar.
+### Em produção (IA, Telegram e Gmail reais)
+
+Painel somente leitura do ambiente em produção (`aiops.gustavomartins.dev`), gerado por um workflow de apoio do próprio n8n. Mostra os indicadores medidos (incluindo o **tempo médio de 2,6 s até a triagem**) e as demandas reais processadas, cada uma com o caminho decidido (🟢 automático, 🟡 aprovação humana, 🔵 encaminhada), o status e a trilha de auditoria. Os e-mails aparecem parcialmente ocultos.
+
+![painel em produção](docs/prints/11-painel-producao.png)
+
+Nesta execução em produção foram verificados, com serviços reais: classificação pela IA, resposta automática, pausa para aprovação humana (aprovar e rejeitar), regras por plano de cliente (Enterprise com P1 e cliente inadimplente), tentativa de *prompt injection*, encerramento de demanda, alerta de SLA disparado pelo monitor e o *Error Workflow*. Os casos de teste e o que cada um deve provocar estão descritos na seção 7.3.
+
+### No ambiente de desenvolvimento (IA simulada)
+
+> As telas abaixo foram geradas no ambiente de desenvolvimento **com a IA simulada**: elas mostram a orquestração real, mas não a qualidade da IA.
 
 **Canvas do workflow principal**, com as 8 etapas do enunciado como faixas coloridas:
 
@@ -239,7 +248,7 @@ Além disso o n8n guarda cada execução com os dados de entrada e saída de tod
 
 Demais workflows: [monitor de SLA](docs/prints/07-workflow-sla.png) · [concluir demanda](docs/prints/08-workflow-concluir.png) · [tratamento de erros](docs/prints/09-workflow-erros.png) · [formulário de encerramento](docs/prints/10-formulario-concluir.png).
 
-<!-- TODO antes de entregar: com OpenAI e Telegram reais, tirar print (a) da mensagem de aprovação no Telegram e (b) do resultado de `select etapa, ator, detalhes from eventos_demanda where protocolo = '...'`, e substituir 03/04/05b se quiser mostrar textos gerados pelo modelo real. -->
+<!-- Falta apenas, se quiser: um print da mensagem de aprovação no Telegram real. -->
 
 ## 10. Estrutura
 

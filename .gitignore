@@ -5,3 +5,6 @@ vps.env
 .DS_Store
 # credenciais geradas pelo seed (contêm segredos)
 .credentials.*.json
+
+# roteiro pessoal do vídeo (contém endereços de teste e links das páginas de apoio)
+docs/roteiro-video.md
