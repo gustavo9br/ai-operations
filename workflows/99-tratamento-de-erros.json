@@ -1,0 +1,105 @@
+{
+  "id": "aiopsErrHandler1",
+  "name": "99 · Tratamento de erros (alerta + auditoria)",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "883fed38-4148-719c-1867-df6a830e7b90",
+      "name": "Erro em qualquer workflow",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $env.GESTOR_TELEGRAM_CHAT_ID }}",
+        "text": "={{ '❌ <b>Falha em workflow</b>\\n<b>' + $json.workflow.name.replace(/&/g,'&amp;').replace(/</g,'&lt;') + '</b>\\nNó: ' + ($json.execution.lastNodeExecuted ?? '?').replace(/&/g,'&amp;').replace(/</g,'&lt;') + '\\nErro: ' + String($json.execution.error?.message ?? 'desconhecido').slice(0, 300).replace(/&/g,'&amp;').replace(/</g,'&lt;') + '\\nExecução: ' + $json.execution.id }}",
+        "additionalFields": {
+          "parse_mode": "HTML",
+          "appendAttribution": false,
+          "disable_web_page_preview": true
+        }
+      },
+      "id": "8c0e7d2f-0683-05e0-73ad-51377e15ccae",
+      "name": "Telegram: alertar falha",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        300,
+        200
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "opsTelegram0001",
+          "name": "Telegram Bot (Ops)"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO eventos_demanda (protocolo, etapa, ator, detalhes, execution_id)\nVALUES ('(sem protocolo)', 'erro_workflow', 'sistema', jsonb_build_object('workflow', $1::text, 'no', $2::text, 'mensagem', $3::text), $4::text)",
+        "options": {
+          "queryReplacement": "={{ [ $('Erro em qualquer workflow').item.json.workflow.name, $('Erro em qualquer workflow').item.json.execution.lastNodeExecuted ?? '', String($('Erro em qualquer workflow').item.json.execution.error?.message ?? '').slice(0, 500), String($('Erro em qualquer workflow').item.json.execution.id) ] }}"
+        }
+      },
+      "id": "9351e80a-be60-4c86-eedb-1882c5ada6d7",
+      "name": "Registrar erro na trilha",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        600,
+        200
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "opsPostgres0001",
+          "name": "Ops Postgres"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    }
+  ],
+  "connections": {
+    "Erro em qualquer workflow": {
+      "main": [
+        [
+          {
+            "node": "Telegram: alertar falha",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram: alertar falha": {
+      "main": [
+        [
+          {
+            "node": "Registrar erro na trilha",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo"
+  },
+  "versionId": "1683bca9-e767-a1fe-9e88-ad5901e0230d",
+  "tags": []
+}

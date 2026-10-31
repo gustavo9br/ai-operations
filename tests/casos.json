@@ -1,0 +1,109 @@
+[
+  {
+    "id": "faq-senha",
+    "descricao": "Dúvida simples e segura: a IA responde sozinha (sem humano)",
+    "payload": {
+      "nome": "Carla Mendes",
+      "email": "carla@padariasol.example",
+      "assunto": "Como redefinir minha senha?",
+      "mensagem": "Olá, esqueci a minha senha de acesso ao sistema. Como faço para redefinir?"
+    },
+    "esperado": { "categoria": "duvida_tecnica", "modo": "auto", "status": "respondida_automaticamente" }
+  },
+  {
+    "id": "reembolso-alto",
+    "descricao": "Reembolso de valor alto com CPF na mensagem: exige aprovação humana",
+    "payload": {
+      "nome": "Marina Souza",
+      "email": "marina@clinicavida.example",
+      "assunto": "Cobrança em duplicidade, quero reembolso",
+      "mensagem": "Fui cobrada duas vezes na fatura de outubro e preciso do reembolso de R$ 1.180,00 que foi debitado a mais. Segue meu CPF 123.456.789-09 para conferência."
+    },
+    "esperado": { "categoria": "reembolso", "modo": "aprovacao", "status": "aguardando_aprovacao" }
+  },
+  {
+    "id": "incidente-p1-enterprise",
+    "descricao": "Sistema fora do ar para cliente Enterprise: P1 e aprovação humana",
+    "payload": {
+      "nome": "Helena Ribeiro",
+      "email": "helena@atlasengenharia.example",
+      "assunto": "Sistema fora do ar",
+      "mensagem": "O sistema está fora do ar para todos os usuários da Atlas desde as 9h. Estamos parados, precisamos de retorno urgente."
+    },
+    "esperado": { "categoria": "incidente_tecnico", "prioridade": "P1", "modo": "aprovacao", "status": "aguardando_aprovacao" }
+  },
+  {
+    "id": "incidente-pro",
+    "descricao": "Erro técnico em cliente Pro: encaminha ao Suporte N2",
+    "payload": {
+      "nome": "Felipe Andrade",
+      "email": "felipe@logisticaorion.example",
+      "assunto": "Erro 500 ao emitir nota",
+      "mensagem": "Desde ontem o módulo de notas fiscais dá erro 500 e parou de funcionar para mim. Já limpei o cache e nada."
+    },
+    "esperado": { "categoria": "incidente_tecnico", "prioridade": "P2", "modo": "encaminhar", "status": "em_atendimento" }
+  },
+  {
+    "id": "cancelamento-enterprise",
+    "descricao": "Pedido de cancelamento: sempre passa por aprovação humana",
+    "payload": {
+      "nome": "Bruno Teixeira",
+      "email": "bruno@varejonorte.example",
+      "assunto": "Quero cancelar o contrato",
+      "mensagem": "Depois de tudo que aconteceu nos últimos meses, queremos cancelar o plano e encerrar o contrato com a Vértice."
+    },
+    "esperado": { "categoria": "cancelamento", "modo": "aprovacao", "status": "aguardando_aprovacao" }
+  },
+  {
+    "id": "baixa-confianca",
+    "descricao": "Mensagem ambígua: a IA tem baixa confiança e um humano revisa a classificação",
+    "payload": {
+      "nome": "Rodrigo Duarte",
+      "email": "rodrigo@cafeduarte.example",
+      "assunto": "Preciso de ajuda",
+      "mensagem": "Oi, preciso de ajuda com uma coisa aí, não sei bem o que fazer ??? Podem me ligar?"
+    },
+    "esperado": { "categoria": "outros", "modo": "aprovacao", "status": "aguardando_aprovacao" }
+  },
+  {
+    "id": "comercial",
+    "descricao": "Pedido comercial: encaminha para Vendas com rascunho",
+    "payload": {
+      "nome": "Sofia Lima",
+      "email": "sofia@estudiolume.example",
+      "assunto": "Proposta para o plano Pro",
+      "mensagem": "Gostaria de receber uma proposta e saber se há desconto para contratar o plano Pro para 8 usuários."
+    },
+    "esperado": { "categoria": "comercial", "modo": "encaminhar", "status": "em_atendimento" }
+  },
+  {
+    "id": "falha-ia",
+    "descricao": "Provedor de IA fora do ar (simulado): falha segura, triagem humana",
+    "mock": true,
+    "payload": {
+      "nome": "Carla Mendes",
+      "email": "carla@padariasol.example",
+      "assunto": "Dúvida sobre relatórios",
+      "mensagem": "Como exporto o relatório de vendas em planilha? FALHA_IA"
+    },
+    "esperado": { "modo": "encaminhar", "status": "em_atendimento", "ia_falhou": true }
+  },
+  {
+    "id": "guardrail",
+    "descricao": "Rascunho da IA promete reembolso: o guardrail bloqueia o envio automático",
+    "mock": true,
+    "payload": {
+      "nome": "Carla Mendes",
+      "email": "carla@padariasol.example",
+      "assunto": "Dúvida sobre API",
+      "mensagem": "Estou recebendo erro 429 na API, o que isso significa? GUARDRAIL_TESTE"
+    },
+    "esperado": { "categoria": "duvida_tecnica", "modo": "encaminhar", "status": "em_atendimento" }
+  },
+  {
+    "id": "entrada-invalida",
+    "descricao": "E-mail inválido e mensagem curta: descartada na validação",
+    "payload": { "nome": "Teste", "email": "isso-nao-e-email", "assunto": "oi", "mensagem": "oi" },
+    "esperado": { "descartada": true }
+  }
+]

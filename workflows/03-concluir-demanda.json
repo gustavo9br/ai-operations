@@ -1,0 +1,166 @@
+{
+  "id": "aiopsConcluir001",
+  "name": "03 · Concluir demanda",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Encerrar demanda · Central de Atendimento",
+        "formDescription": "Registre a resolução. O cliente recebe um e-mail avisando que a demanda foi concluída.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Protocolo",
+              "requiredField": true,
+              "placeholder": "DEM-20261028-ABCDE"
+            },
+            {
+              "fieldLabel": "Seu nome",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Resolução",
+              "fieldType": "textarea",
+              "requiredField": true,
+              "placeholder": "O que foi feito para resolver"
+            }
+          ]
+        },
+        "options": {
+          "path": "concluir-demanda",
+          "buttonLabel": "Encerrar demanda",
+          "appendAttribution": false,
+          "respondWithOptions": {
+            "values": {
+              "respondWith": "text",
+              "formSubmittedText": "Pronto! Se o protocolo existir e estiver em aberto, a demanda foi encerrada e o cliente foi avisado."
+            }
+          }
+        }
+      },
+      "id": "a5b5851c-d71f-24ee-ddaa-37ae655b0f61",
+      "name": "Formulário: concluir demanda",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        0,
+        200
+      ],
+      "webhookId": "fea703cc-5919-51fc-c19b-bc50ed8859ad"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH upd AS (\n  UPDATE demandas SET status = 'concluida', concluida_em = now(), resolucao = $3::text, atualizado_em = now()\n  WHERE protocolo = upper(trim($1::text)) AND concluida_em IS NULL\n  RETURNING protocolo, nome, email, assunto, criado_em, concluida_em\n), ev AS (\n  INSERT INTO eventos_demanda (protocolo, etapa, ator, detalhes, execution_id)\n  SELECT protocolo, 'concluida', 'humano:' || $2::text,\n         jsonb_build_object('resolucao', $3::text, 'minutos_total', round(extract(epoch FROM (concluida_em - criado_em)) / 60)), $4::text FROM upd\n)\nSELECT protocolo, nome, email, assunto, round(extract(epoch FROM (concluida_em - criado_em)) / 60)::int AS minutos_total FROM upd",
+        "options": {
+          "queryReplacement": "={{ [ $json['Protocolo'], $json['Seu nome'], $json['Resolução'], $execution.id ] }}"
+        }
+      },
+      "id": "d7095405-7a61-5c3c-f073-da81f0a1a860",
+      "name": "Encerrar demanda no banco",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        300,
+        200
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "opsPostgres0001",
+          "name": "Ops Postgres"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// AÇÃO: monta o e-mail avisando o cliente de que a demanda foi concluída.\n// ---- utilitários compartilhados (incluídos pelo gerador nos nós Code que precisam) ----\nconst esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');\nconst paragrafos = (t) => String(t ?? '').trim().split(/\\n{2,}/)\n  .map((p) => `<p style=\"margin:0 0 14px\">${esc(p).replace(/\\n/g, '<br>')}</p>`).join('');\nconst emailHtml = ({ titulo, corpo, protocolo }) => `<!doctype html><html lang=\"pt-BR\"><body style=\"margin:0;background:#f3f5f9;font-family:Segoe UI,Helvetica,Arial,sans-serif;color:#1f2937\">\n<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"padding:24px 12px\"><tr><td align=\"center\">\n<table role=\"presentation\" width=\"560\" cellpadding=\"0\" cellspacing=\"0\" style=\"max-width:560px;background:#ffffff;border-radius:10px;overflow:hidden;border:1px solid #e3e7ef\">\n<tr><td style=\"background:#1d3b8b;color:#ffffff;padding:18px 24px;font-size:17px;font-weight:600\">Vértice Cloud · Atendimento</td></tr>\n<tr><td style=\"padding:24px 24px 8px;font-size:15px;line-height:1.55\">\n<p style=\"margin:0 0 14px;font-size:17px;font-weight:600\">${esc(titulo)}</p>${corpo}</td></tr>\n<tr><td style=\"padding:8px 24px 22px;font-size:12px;color:#6b7280\">Protocolo <strong style=\"color:#1f2937\">${esc(protocolo)}</strong> · guarde este número para acompanhar sua solicitação.</td></tr>\n</table></td></tr></table></body></html>`;\nconst fmtData = (iso) => new Date(iso).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });\nconst brl = (n) => (n == null || Number.isNaN(Number(n))) ? 'não informado' : Number(n).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });\n\nconst d = $input.item.json;\nconst primeiro = String(d.nome ?? '').split(/\\s+/)[0] ?? '';\nconst corpo = paragrafos(\n  `Olá, ${primeiro}!\\n\\nSua solicitação \"${d.assunto}\" foi concluída. Se algo ainda não estiver resolvido, é só responder este e-mail que reabrimos o atendimento.\\n\\nEquipe de Atendimento Vértice Cloud`\n);\nreturn {\n  json: {\n    ...d,\n    email_assunto: `[${d.protocolo}] Sua solicitação foi concluída`,\n    email_html: emailHtml({ titulo: 'Sua solicitação foi concluída', corpo, protocolo: d.protocolo }),\n  },\n};\n"
+      },
+      "id": "43ecbedc-f87c-429f-efb1-9781926f0f16",
+      "name": "Montar e-mail de conclusão",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        580,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "email",
+        "operation": "send",
+        "fromEmail": "={{ $env.EMAIL_REMETENTE }}",
+        "toEmail": "={{ $json.email }}",
+        "subject": "={{ $json.email_assunto }}",
+        "emailFormat": "html",
+        "html": "={{ $json.email_html }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "b6f61440-b167-9231-f1e2-a118880f4282",
+      "name": "E-mail: demanda concluída",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        860,
+        200
+      ],
+      "credentials": {
+        "smtp": {
+          "id": "opsSmtp00000001",
+          "name": "SMTP (Ops)"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    }
+  ],
+  "connections": {
+    "Formulário: concluir demanda": {
+      "main": [
+        [
+          {
+            "node": "Encerrar demanda no banco",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Encerrar demanda no banco": {
+      "main": [
+        [
+          {
+            "node": "Montar e-mail de conclusão",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Montar e-mail de conclusão": {
+      "main": [
+        [
+          {
+            "node": "E-mail: demanda concluída",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo",
+    "errorWorkflow": "aiopsErrHandler1"
+  },
+  "versionId": "67c60ec6-4c88-6aa9-9b16-5ba5722a498d",
+  "tags": []
+}
